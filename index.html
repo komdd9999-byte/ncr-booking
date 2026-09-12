@@ -102,14 +102,16 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA_Rrw7SZfsPaHbSJuoJN3lhKYbUzlITPcQuG4dIvv9QVocQeAdFPwMbifgNNaWoFZ7A/exec";
 
     let map, marker;
-    let currentLat = 14.997172; // ค่าเริ่มต้น เซ็นทรัลโคราช
+    let currentLat = 14.997172; // จุดเริ่มต้น เซ็นทรัลโคราช
     let currentLng = 102.116034;
+    let userLineId = "";
 
     async function initLiff() {
       try {
         await liff.init({ liffId: MY_LIFF_ID });
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
+          userLineId = profile.userId;
           document.getElementById('userProfileName').innerText = profile.displayName;
         } else {
           document.getElementById('userProfileName').innerText = 'LINE Guest';
@@ -123,6 +125,7 @@
     function initMap() {
       map = L.map('pickerMap').setView([currentLat, currentLng], 13);
       
+      // ใช้ CARTO Voyager แผนที่สวยงาม ไม่โดนบล็อก
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
@@ -185,6 +188,7 @@
         try {
           const profile = await liff.getProfile();
           userName = profile.displayName;
+          userLineId = profile.userId;
         } catch (err) {
           console.log("Get profile error", err);
         }
@@ -194,6 +198,7 @@
         orderId: "ORD-" + Date.now().toString().slice(-6),
         jobType: document.getElementById('jobType').value,
         lineUserName: userName,
+        lineUserId: userLineId,
         receiverName: document.getElementById('receiverName').value,
         receiverPhone: document.getElementById('receiverPhone').value,
         address: document.getElementById('address').value,
@@ -205,6 +210,7 @@
       };
 
       try {
+        // ยิงข้อมูลเข้า Google Apps Script
         await fetch(SCRIPT_URL, {
           method: "POST",
           mode: "no-cors",
@@ -212,25 +218,26 @@
           body: JSON.stringify(payload)
         });
 
+        // ส่งข้อความยืนยันเข้าห้องแชทของลูกค้า
         if (liff.isInClient()) {
           try {
             await liff.sendMessages([
               {
                 type: "text",
-                text: `📦 ส่งคำขอจัดส่งพัสดุเรียบร้อย!\n` +
+                text: `📦 ส่งคำขอเรียบร้อยแล้ว!\n\n` +
                       `• รหัสออเดอร์: ${payload.orderId}\n` +
-                      `• ประเภท: ${payload.jobType === 'delivery' ? 'ไปส่ง' : 'ไปรับ'}\n` +
+                      `• ประเภท: ${payload.jobType === 'delivery' ? 'ไปส่งพัสดุ' : 'เข้ารับพัสดุ'}\n` +
                       `• ผู้รับ: ${payload.receiverName} (${payload.receiverPhone})\n` +
-                      `• พิกัด: ${payload.lat.toFixed(4)}, ${payload.lng.toFixed(4)}\n` +
-                      `เจ้าหน้าที่กำลังจัดคิวรถให้ครับ`
+                      `• รายการ: ${payload.item} (${payload.weight} กก.)\n\n` +
+                      `เจ้าหน้าที่รับข้อมูลแล้ว กำลังจัดคิวรถให้ครับ 🛵💨`
               }
             ]);
           } catch (msgErr) {
-            console.log("sendMessages skipped or failed:", msgErr);
+            console.log("sendMessages error:", msgErr);
           }
-          liff.closeWindow();
+          liff.closeWindow(); // ปิดหน้าต่าง LIFF ทันที
         } else {
-          alert(`✅ บันทึกออเดอร์ ${payload.orderId} ลง Google Sheet สำเร็จ!`);
+          alert(`✅ บันทึกออเดอร์ ${payload.orderId} สำเร็จ!`);
           btn.disabled = false;
           btn.innerText = "ยืนยันการจัดส่ง";
         }
