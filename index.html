@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- LINE LIFF SDK v2 -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <!-- Leaflet Map สำหรับปักหมุด GPS -->
+  <!-- Leaflet Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -36,7 +36,7 @@
     </div>
 
     <form id="bookingForm" class="space-y-3 text-xs">
-      <!-- 1. ประเภทงาน (ไปส่ง / ไปรับ) -->
+      <!-- 1. ประเภทงาน -->
       <div>
         <label class="block font-semibold text-slate-700 mb-1">ประเภทงานขนส่ง *</label>
         <div class="grid grid-cols-2 gap-2">
@@ -50,7 +50,7 @@
         <input type="hidden" id="jobType" value="delivery">
       </div>
 
-      <!-- 2. ข้อมูลผู้รับ / จุดส่ง -->
+      <!-- 2. ข้อมูลผู้รับ -->
       <div class="space-y-2">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">ชื่อผู้ติดต่อ / ผู้รับ *</label>
@@ -66,21 +66,21 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="font-semibold text-slate-700">ปักหมุดพิกัดปลายทาง (GPS) *</label>
-          <span class="text-[10px] text-blue-600 cursor-pointer" onclick="useCurrentLocation()">📍 ใช้ตำแหน่งปัจจุบัน</span>
+          <span class="text-[10px] text-blue-600 cursor-pointer font-semibold" onclick="useCurrentLocation()">📍 ใช้ตำแหน่งปัจจุบัน</span>
         </div>
         <div id="pickerMap" class="mb-2"></div>
         <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400 mb-1.5">
           <span>Lat: <b id="displayLat" class="text-slate-700">14.9971</b></span>
           <span>Lng: <b id="displayLng" class="text-slate-700">102.1160</b></span>
         </div>
-        <textarea id="address" rows="2" required placeholder="รายละเอียดที่อยู่ / ชื่ออาคาร / ซอย / สังเกต..." class="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white text-xs"></textarea>
+        <textarea id="address" rows="2" required placeholder="รายละเอียดที่อยู่ / ชื่ออาคาร / ซอย / จุดสังเกต..." class="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white text-xs"></textarea>
       </div>
 
       <!-- 4. น้ำหนัก & สิ่งของ -->
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="block font-semibold text-slate-700 mb-1">รายการสิ่งของ</label>
-          <input type="text" id="item" placeholder="เช่น อะไหล่ / ผลไม้" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none text-xs bg-slate-50">
+          <input type="text" id="item" placeholder="เช่น อะไหล่ / พัสดุ" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none text-xs bg-slate-50">
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">น้ำหนัก (kg)</label>
@@ -91,7 +91,7 @@
       <!-- ปุ่มยืนยัน -->
       <div class="pt-2">
         <button type="submit" id="submitBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 transition text-xs flex items-center justify-center gap-2 cursor-pointer">
-          <span>ยืนยันการจัดส่ง (ประเมินราคาเรียลไทม์)</span>
+          <span>ยืนยันการจัดส่ง</span>
         </button>
       </div>
     </form>
@@ -120,8 +120,12 @@
 
     function initMap() {
       map = L.map('pickerMap').setView([currentLat, currentLng], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap'
+      
+      // ใช้ Tile Server ของ CartoDB Voyager แทน OSM แบบเดิมเพื่อแก้ปัญหาโดนแบน
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
       }).addTo(map);
 
       marker = L.marker([currentLat, currentLng], { draggable: true }).addTo(map);
@@ -152,7 +156,7 @@
           map.setView([lat, lng], 15);
           marker.setLatLng([lat, lng]);
           updateCoords(lat, lng);
-        }, () => alert("ไม่สามารถดึง GPS ได้ กรุณาเลื่อนหมุดบนแผนที่"));
+        }, () => alert("ไม่สามารถดึง GPS ได้ กรุณาแตะเลือกตำแหน่งบนแผนที่"));
       }
     }
 
@@ -188,16 +192,14 @@
         timestamp: new Date().toISOString()
       };
 
-      // ส่งเข้า Backend หรือ Database โดยตรง (ตัวอย่าง fetch เข้า API)
-      console.log("Order Data:", payload);
+      console.log("บันทึกข้อมูลสำเร็จ:", payload);
       alert(`✅ บันทึกออเดอร์ ${payload.orderId} สำเร็จ!`);
 
-      // ปิดหน้าต่าง LIFF กลับสู่ห้องแชท LINE
       if (liff.isInClient()) {
         liff.closeWindow();
       } else {
         btn.disabled = false;
-        btn.innerText = "บันทึกเรียบร้อย (ปิดหน้านี้ได้เลย)";
+        btn.innerText = "บันทึกเรียบร้อย";
       }
     });
 
