@@ -99,6 +99,8 @@
 
   <script>
     const MY_LIFF_ID = "2011573969-pn9hzSzG";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA_Rrw7SZfsPaHbSJuoJN3lhKYbUzlITPcQuG4dIvv9QVocQeAdFPwMbifgNNaWoFZ7A/exec";
+
     let map, marker;
     let currentLat = 14.997172; // ค่าเริ่มต้น เซ็นทรัลโคราช
     let currentLng = 102.116034;
@@ -121,7 +123,6 @@
     function initMap() {
       map = L.map('pickerMap').setView([currentLat, currentLng], 13);
       
-      // ใช้ Tile Server ของ CartoDB Voyager แทน OSM แบบเดิมเพื่อแก้ปัญหาโดนแบน
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
@@ -179,9 +180,20 @@
       btn.disabled = true;
       btn.innerText = "กำลังบันทึกข้อมูล...";
 
+      let userName = "LINE Guest";
+      if (liff.isLoggedIn()) {
+        try {
+          const profile = await liff.getProfile();
+          userName = profile.displayName;
+        } catch (err) {
+          console.log("Get profile error", err);
+        }
+      }
+
       const payload = {
         orderId: "ORD-" + Date.now().toString().slice(-6),
         jobType: document.getElementById('jobType').value,
+        lineUserName: userName,
         receiverName: document.getElementById('receiverName').value,
         receiverPhone: document.getElementById('receiverPhone').value,
         address: document.getElementById('address').value,
@@ -192,14 +204,41 @@
         timestamp: new Date().toISOString()
       };
 
-      console.log("บันทึกข้อมูลสำเร็จ:", payload);
-      alert(`✅ บันทึกออเดอร์ ${payload.orderId} สำเร็จ!`);
+      try {
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
 
-      if (liff.isInClient()) {
-        liff.closeWindow();
-      } else {
+        if (liff.isInClient()) {
+          try {
+            await liff.sendMessages([
+              {
+                type: "text",
+                text: `📦 ส่งคำขอจัดส่งพัสดุเรียบร้อย!\n` +
+                      `• รหัสออเดอร์: ${payload.orderId}\n` +
+                      `• ประเภท: ${payload.jobType === 'delivery' ? 'ไปส่ง' : 'ไปรับ'}\n` +
+                      `• ผู้รับ: ${payload.receiverName} (${payload.receiverPhone})\n` +
+                      `• พิกัด: ${payload.lat.toFixed(4)}, ${payload.lng.toFixed(4)}\n` +
+                      `เจ้าหน้าที่กำลังจัดคิวรถให้ครับ`
+              }
+            ]);
+          } catch (msgErr) {
+            console.log("sendMessages skipped or failed:", msgErr);
+          }
+          liff.closeWindow();
+        } else {
+          alert(`✅ บันทึกออเดอร์ ${payload.orderId} ลง Google Sheet สำเร็จ!`);
+          btn.disabled = false;
+          btn.innerText = "ยืนยันการจัดส่ง";
+        }
+      } catch (err) {
+        console.error(err);
+        alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
         btn.disabled = false;
-        btn.innerText = "บันทึกเรียบร้อย";
+        btn.innerText = "ยืนยันการจัดส่ง";
       }
     });
 
